@@ -1,5 +1,6 @@
 package rx;
 
+import haxe.Constraints.Constructible;
 import rx.core.Interface;
 import rx.scheduler.IScheduler;
 import rx.scheduler.ICurrentThreadScheduler;
@@ -12,6 +13,7 @@ import rx.promise.IPromise;
 import js.html.EventListener;
 import js.html.Event;
 
+import haxe.extern.Rest;
 
 extern interface IObservable<T> {
   @:overload(function (observer: Observer<T>): IDisposable {})
@@ -28,10 +30,11 @@ typedef Predicate<T> = T -> Int -> Observable<T> -> Bool;
 
 // resolver, rejector
 typedef PromiseResolver<T> = (T -> Void) -> (Dynamic -> Void);
-typedef PromiseCtor<T, TPromise: IPromise<T>> = {
-  function new (resolver: PromiseResolver<T> -> Void): TPromise;
-}
 
+//typedef PromiseCtor<T, TPromise: IPromise<T>> = {
+  //function new (resolver: PromiseResolver<T> -> Void): TPromise;
+//}
+typedef PromiseCtor<T, TPromise: IPromise<T>> = Constructible<T>
 
 
 /**
@@ -100,7 +103,7 @@ extern class ObservableStatic<T> {
 
   /**
   *  Converts an iterable into an Observable sequence
-  *  
+  *
   * @example
   *  var res = Rx.Observable.fromIterable(new Map());
   *  var res = Rx.Observable.fromIterable(function* () { yield 42; });
@@ -112,7 +115,7 @@ extern class ObservableStatic<T> {
   @:overload(function <T>(generator: Void -> { next: Void -> { done: Bool, ?value: T } }, ?scheduler: IScheduler): Observable<T> {})
   /**
   *  Converts an iterable into an Observable sequence
-  *  
+  *
   * @example
   *  var res = Rx.Observable.fromIterable(new Map());
   *  var res = Rx.Observable.fromIterable(new Set(), Rx.Scheduler.timeout);
@@ -127,16 +130,17 @@ extern class ObservableStatic<T> {
 
   /**
   *  This method creates a new Observable instance with a variable Int of arguments, regardless of Int or type of the arguments.
-  * 
+  *
   * @example
   *  var res = Rx.Observable.of(1, 2, 3);
   * @since 2.2.28
   * @returns The observable sequence whose elements are pulled from the given arguments.
   */
-  public static function of<T>(values: Array<T>): Observable<T>;
+  @:overload(function <T>(values: Array<T>): Observable<T> {})
+  public static function of<T>(values: Rest<T>): Observable<T>;
 
   /**
-  *  This method creates a new Observable instance with a variable Int of arguments, regardless of Int or type of the arguments. 
+  *  This method creates a new Observable instance with a variable Int of arguments, regardless of Int or type of the arguments.
   * @example
   *  var res = Rx.Observable.ofWithScheduler(Rx.Scheduler.timeout, 1, 2, 3);
   * @since 2.2.28
@@ -433,33 +437,33 @@ extern class Observable<T> implements IObservable<T> {
   public function concatMap<R>(sequence: Observable<R>): Observable<R>;
 
   /**
-   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then 
+   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then
    *  transforms an observable sequence of observable sequences into an observable sequence producing values only from the most recent observable sequence.
    * @param selector A transform function to apply to each source element; the second parameter of the function represents the index of the source element.
    * @param [thisArg] Object to use as this when executing callback.
-   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences 
+   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences
    *  and that at any point in time produces the elements of the most recent inner observable sequence that has been received.
    */
   public function selectSwitch<TResult>(
       selector: SelectorWithObservableFunc<T, TResult>, ?thisArg: Dynamic): Observable<TResult>;
   /**
    * alias for selectSwitch
-   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then 
+   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then
    *  transforms an observable sequence of observable sequences into an observable sequence producing values only from the most recent observable sequence.
    * @param selector A transform function to apply to each source element; the second parameter of the function represents the index of the source element.
    * @param [thisArg] Object to use as this when executing callback.
-   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences 
+   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences
    *  and that at any point in time produces the elements of the most recent inner observable sequence that has been received.
    */
   public function flatMapLatest<TResult>(
       selector: SelectorWithObservableFunc<T, TResult>, ?thisArg: Dynamic): Observable<TResult>;
   /**
-   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then 
+   *  Projects each element of an observable sequence into a new sequence of observable sequences by incorporating the element's index and then
    *  transforms an observable sequence of observable sequences into an observable sequence producing values only from the most recent observable sequence.
    * @param selector A transform function to apply to each source element; the second parameter of the function represents the index of the source element.
    * @param [thisArg] Object to use as this when executing callback.
    * @since 2.2.28
-   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences 
+   * @returns An observable sequence whose elements are the result of invoking the transform function on each element of source producing an Observable of Observable sequences
    *  and that at any point in time produces the elements of the most recent inner observable sequence that has been received.
    */
   public function switchMap<TResult>(selector: SelectorWithObservableFunc<T, TResult>, ?thisArg: Dynamic): Observable<TResult>;  // alias for selectSwitch
@@ -482,7 +486,7 @@ extern class Observable<T> implements IObservable<T> {
    * Converts an existing observable sequence to an ES6 Compatible Promise
    * @example
    * var promise = Rx.Observable.return(42).toPromise(RSVP.Promise);
-   * 
+   *
    * // With config
    * Rx.config.Promise = RSVP.Promise;
    * var promise = Rx.Observable.return(42).toPromise();
