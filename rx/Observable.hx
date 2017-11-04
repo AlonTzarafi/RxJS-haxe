@@ -15,17 +15,12 @@ import js.html.Event;
 
 import haxe.extern.Rest;
 
-extern interface IObservable<T> {
-  @:overload(function (observer: Observer<T>): IDisposable {})
-    public function subscribe(
-        ?onNext: T -> Void,
-        ?onError: Dynamic -> Void,
-        ?onCompleted: Void -> Void): IDisposable;
-}
-
 
 typedef SelectorWithIndexFunc<T, TResult> = T -> Int -> TResult;
-typedef SelectorWithObservableFunc<T, U> = T -> Int -> Observable<T> -> U;
+//typedef SelectorWithObservableFunc<T, U> = T -> Int -> Observable<T> -> U;
+typedef SelectorWithObservableFunc<T, U> = Int -> Int -> Int;
+typedef SelectorForMap<T, U> = T -> U;
+typedef SelectorReduce<T, U> = Int -> Int -> U;
 typedef Predicate<T> = T -> Int -> Observable<T> -> Bool;
 
 // resolver, rejector
@@ -90,7 +85,7 @@ extern class ObservableStatic<T> {
 
 
   @:overload(function <T>(subscribe: Observer<T> -> IDisposable): Observable<T> {})
-  @:overload(function <T>(subscribe: Observer<T> -> Void -> Void): Observable<T> {})
+  @:overload(function <T>(subscribe: Observer<T> -> (Void -> Void)): Observable<T> {})
   public static function create<T>(subscribe: Observer<T> -> Void): Observable<T>;
   public static function createWithDisposable<T>(subscribe: Observer<T> -> IDisposable): Observable<T>;
   @:overload(function <T>(observableFactory: Void -> Observable<T>): Observable<T> {})
@@ -126,7 +121,9 @@ extern class ObservableStatic<T> {
   */
   public static function fromItreable<T>(iterable: {}, ?scheduler: IScheduler): Observable<T>;
   public static function generate<TState, TResult>(initialState: TState, condition: TState -> Bool, iterate: TState -> TState, resultSelector: TState -> TResult, ?scheduler: IScheduler): Observable<TResult>;
-  public static var never(default, null): Observable<T>;
+
+  public static function never<T>(): Observable<T>;
+
 
   /**
   *  This method creates a new Observable instance with a variable Int of arguments, regardless of Int or type of the arguments.
@@ -138,6 +135,7 @@ extern class ObservableStatic<T> {
   */
   @:overload(function <T>(values: Array<T>): Observable<T> {})
   public static function of<T>(values: Rest<T>): Observable<T>;
+
 
   /**
   *  This method creates a new Observable instance with a variable Int of arguments, regardless of Int or type of the arguments.
@@ -155,6 +153,7 @@ extern class ObservableStatic<T> {
   /**
     * @since 2.2.28
     */
+  //just and return don't work. use of()
   public static function just<T>(value: T, ?scheduler: IScheduler): Observable<T>;  // alias for return
   public static function returnValue<T>(value: T, ?scheduler: IScheduler): Observable<T>;  // alias for return
   @:native("throw")
@@ -209,6 +208,9 @@ extern class ObservableStatic<T> {
   // combineLatest<TOther, TResult>(souces: Array<Observable<TOther>>, resultSelector: (otherValues: Array<TOther>) -> TResult): Observable<TResult>;
   // combineLatest<TOther, TResult>(souces: Array<IPromise<TOther>>, resultSelector: (otherValues: Array<TOther>) -> TResult): Observable<TResult>;
 
+  @:overload(function <T>(source: Observable<T>): Observable<T> {})
+  @:overload(function <T>(source1: Observable<T>, source2: Observable<T>): Observable<T> {})
+  @:overload(function <T>(source1: Observable<T>, source2: Observable<T>, source3: Observable<T>): Observable<T> {})
   @:overload(function <T>(sources: Array<Observable<T>>): Observable<T> {})
   public static function concat<T>(sources: Array<IPromise<T>>): Observable<T>;
 
@@ -352,8 +354,14 @@ extern class Observable<T> implements IObservable<T> {
   public function switch_(): T;
   public function switchLatest(): T;  // alias for switch
 
+  public function publish(): Observable<T>;
+  public function connect(): Void;
+
+
   @:overload(function <T2>(other: Observable<T2>): Observable<T> {})
   public function takeUntil<T2>(other: IPromise<T2>): Observable<T>;
+
+  public function withLatestFrom<T2, TResult>(other: Observable<T2>, project: T->T2->TResult): Observable<TResult>;
 
   @:generic
   @:overload(function <T, T2, TResult>(second: Observable<T2>, resultSelector: T -> T2 -> TResult): Observable<TResult> {})
@@ -380,6 +388,10 @@ extern class Observable<T> implements IObservable<T> {
   @:overload(function (skipParameter: Bool, comparer: T -> T -> Bool): Observable<T> {})
   public function distinctUntilChanged<TValue>(?keySelector: T -> TValue, ?comparer: TValue -> TValue -> Bool): Observable<T>;
 
+  //@:overload(function<TResult>(keySelector: T -> TResult, comparer: T -> T -> Bool): Observable<T> {})
+  @:overload(function<TKey>(keySelector: T -> TKey): Observable<T> {})
+  public function distinct():Observable<T>;
+
   @:native('do')
   @:overload(function (observer: Observer<T>): Observable<T> {})
   public function do_(?onNext: T -> Void, ?onError: Dynamic -> Void, ?onCompleted: Void -> Void): Observable<T>;
@@ -395,9 +407,14 @@ extern class Observable<T> implements IObservable<T> {
   public function materialize(): Observable<Notification<T>>;
   public function repeat(?repeatCount: Int): Observable<T>;
   public function retry(?retryCount: Int): Observable<T>;
-  @:overload(function <TAcc>(seed: TAcc, accumulator: TAcc -> T -> TAcc): Observable<TAcc> {})
+
+  @:overload(function < TAcc > (seed: TAcc, accumulator: TAcc -> T -> TAcc): Observable<TAcc> {})
+  @:overload(function < TAcc > (accumulator: TAcc -> T -> TAcc, seed: TAcc): Observable<TAcc> {})
   public function scan(accumulator: T -> T -> T): Observable<T>;
+
+  public function reduce<TResult>(selector: SelectorWithObservableFunc<T, TResult>): Observable<T>;
   public function skipLast(count: Int): Observable<T>;
+  @:overload(function (value: T): Observable<T> {})
   @:overload(function (values: Iterable<T>): Observable<T> {})
   public function startWith(scheduler: IScheduler, values: Iterable<T>): Observable<T>;
   public function takeLast(count: Int, ?scheduler: IScheduler): Observable<T>;
@@ -406,7 +423,7 @@ extern class Observable<T> implements IObservable<T> {
   public function select<TResult>(
       selector: SelectorWithObservableFunc<T,TResult >, ?thisArg: Dynamic): Observable<TResult>;
   // alias for select
-  public function map<TResult>(selector: SelectorWithObservableFunc<T, TResult>, ?thisArg: Dynamic): Observable<TResult>;
+  public function map<TResult>(selector: SelectorForMap<T, TResult>, ?thisArg: Dynamic): Observable<TResult>;
 
   @:overload(function <TOther, TResult>(selector: T -> Observable<TOther>, resultSelector: T -> TOther -> TResult): Observable<TResult> {})
   @:overload(function <TOther, TResult>(selector: T -> IPromise<TOther>, resultSelector: T -> TOther -> TResult): Observable<TResult> {})
@@ -470,6 +487,7 @@ extern class Observable<T> implements IObservable<T> {
 
   public function skip(count: Int): Observable<T>;
   public function skipWhile(predicate: Predicate<T>, ?thisArg: Dynamic): Observable<T>;
+  public function first(): Observable<T>;
   public function take(count: Int, ?scheduler: IScheduler): Observable<T>;
   public function takeWhile(predicate: Predicate<T>, ?thisArg: Dynamic): Observable<T>;
   public function where(predicate: Predicate<T>, ?thisArg: Dynamic): Observable<T>;
