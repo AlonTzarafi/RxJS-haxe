@@ -56,7 +56,8 @@ extern class ObservableStatic<T> {
     iterable: Iterable<T>,
     ?mapFn: SelectorWithIndexFunc<T, TResult>,
     ?thisArg: Dynamic,
-    ?scheduler: ICurrentThreadScheduler=Scheduler.currentThread
+    ?scheduler: ICurrentThreadScheduler
+    // ?scheduler: ICurrentThreadScheduler=Scheduler.currentThread
     ): Observable<T>;
 
   // TODO: I have no idea How to make [] accesable type in Haxe.
@@ -355,7 +356,7 @@ extern class Observable<T> implements IObservable<T> {
   public function switchLatest(): T;  // alias for switch
 
   public function publish(): Observable<T>;
-  public function connect(): Void;
+  public function connect(): IDisposable;
 
 
   @:overload(function <T2>(other: Observable<T2>): Observable<T> {})
